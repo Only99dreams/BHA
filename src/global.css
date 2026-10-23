@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: var(--ink);
+  background: #f6f5f0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --ink: #092d67;
+  --ink-soft: #536078;
+  --forest: #092d67;
+  --green: #18c832;
+  --mint: #e4eaf3;
+  --paper: #f6f5f0;
+  --white: #fffefa;
+  --line: #dedfd5;
+  --orange: #ff6b00;
+  --mono: 'DM Mono', monospace;
+  --display: 'Manrope', sans-serif;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #e8eef7;
+  --ink-soft: #b0bfd2;
+  --forest: #6da0e7;
+  --green: #35c85a;
+  --mint: #1c2b40;
+  --paper: #101824;
+  --white: #172232;
+  --line: #2b3a50;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 360px; scroll-behavior: smooth; scroll-padding-top: 26px; }
+body { margin: 0; min-width: 360px; background: var(--paper); color: var(--ink); }
+body, button, input, select { font-family: 'DM Sans', sans-serif; }
+button, a, select { -webkit-tap-highlight-color: transparent; }
+button { color: inherit; }
+a { color: inherit; }
+::selection { background: #c5ddc6; color: #173b29; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

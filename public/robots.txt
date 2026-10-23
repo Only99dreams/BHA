@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /onboarding
+
+Sitemap: https://businesshub.africa/functions/v1/sitemap
