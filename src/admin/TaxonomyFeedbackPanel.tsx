@@ -1,16 +1,9 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { AlertTriangle, Check, Clock3, MessageSquare, Send, Tag } from 'lucide-react'
+import { AlertTriangle, MessageSquare, Send, Tag } from 'lucide-react'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-interface FeedbackItem {
-  id: string
-  type: 'CHANGE_REQUEST' | 'SUGGESTION' | 'ISSUE'
-  message: string
-  created_at: string
-}
 
 export function TaxonomyFeedbackPanel() {
   const [feedbackType, setFeedbackType] = useState<'CHANGE_REQUEST' | 'SUGGESTION' | 'ISSUE'>('SUGGESTION')

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Plus, Pencil, Trash2, AlertTriangle, Check, ChevronDown, ChevronRight, Settings2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle, Check, Settings2 } from 'lucide-react'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY

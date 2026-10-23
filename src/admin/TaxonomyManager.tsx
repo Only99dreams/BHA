@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, GripVertical, Eye, EyeOff, ArrowLeft, Check, X, AlertTriangle, Settings2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, GripVertical, Eye, EyeOff, Check, AlertTriangle } from 'lucide-react'
 import { AttributeManager } from './AttributeManager'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -48,7 +48,7 @@ export function TaxonomyManager() {
   const [loading, setLoading] = useState(true)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null)
+  const [, setEditingSubcategory] = useState<Subcategory | null>(null)
   const [editingBusinessType, setEditingBusinessType] = useState<BusinessType | null>(null)
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [showNewSubcategory, setShowNewSubcategory] = useState<string | null>(null)

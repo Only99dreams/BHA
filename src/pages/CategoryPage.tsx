@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowLeft, ArrowRight, BadgeCheck, Building2, ChevronDown, Compass, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Brand } from '../Brand'
 import { generateCategoryStructuredData } from '../lib/seo'
 
@@ -71,7 +71,7 @@ export function CategoryPage({ categorySlug }: { categorySlug: string }) {
     const loadCategory = async () => {
       const client = createClient(supabaseUrl, supabaseAnonKey)
 
-      const [catResult, subResult, attrResult, countryResult] = await Promise.all([
+      const [catResult, , , countryResult] = await Promise.all([
         client.from('categories').select('*').eq('slug', categorySlug).eq('is_active', true).single(),
         client.from('subcategories').select('*').eq('category_id', '').order('sort_order'), // placeholder, will update after category loads
         client.from('category_attributes').select('*').eq('category_id', '').eq('is_active', true).order('sort_order'),

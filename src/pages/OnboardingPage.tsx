@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { ArrowLeft, ArrowRight, Building2, Check, ChevronRight, FileText, Globe2, Mail, MapPin, Phone, Upload, User, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2, Check, FileText, Globe2, MapPin, Phone, Upload, X } from 'lucide-react'
 import { Brand } from '../Brand'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -79,7 +79,7 @@ export function OnboardingPage({ session, onComplete }: { session: any; onComple
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const [subcategories] = useState<Subcategory[]>([])
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([])
   const [countries, setCountries] = useState<{ code: string; name: string }[]>([])
   const [form, setForm] = useState<OnboardingData>({
