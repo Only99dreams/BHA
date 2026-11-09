@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import { Brand } from './Brand'
 import { getSupabaseClient, hasSupabaseConfig } from './supabase'
@@ -15,6 +15,19 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState(new URLSearchParams(window.location.search).has('confirmed') ? 'Your email is confirmed. Sign in to continue.' : '')
+
+  // Confirmation links can create the session automatically. If that happened,
+  // send the new owner straight into onboarding instead of showing the form again.
+  useEffect(() => {
+    if (!hasSupabaseConfig) return
+    let isCurrent = true
+    void getSupabaseClient().auth.getSession().then(({ data }) => {
+      if (!isCurrent || !data.session) return
+      const justConfirmed = new URLSearchParams(window.location.search).has('confirmed')
+      window.location.assign(justConfirmed ? '/onboarding' : '/dashboard')
+    })
+    return () => { isCurrent = false }
+  }, [])
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -39,14 +52,18 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         })
         if (authError) throw authError
         if (data.session) {
-          window.location.assign('/dashboard')
+          window.location.assign('/onboarding')
           return
         }
         setNotice('Account created. Check your email for a confirmation link before signing in.')
       } else {
         const { error: authError } = await client.auth.signInWithPassword({ email: email.trim(), password })
         if (authError) throw authError
-        window.location.assign('/dashboard')
+        const next = new URLSearchParams(window.location.search).get('next')
+        const currentPath = `${window.location.pathname}${window.location.search}`
+        const fallback = window.location.pathname === '/login' || window.location.pathname === '/signup' ? '/dashboard' : currentPath
+        const destination = next && next.startsWith('/') ? next : fallback
+        window.location.assign(destination && destination.startsWith('/') ? destination : '/dashboard')
       }
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : 'We could not complete that request. Please try again.')

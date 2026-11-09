@@ -55,7 +55,20 @@
 .welcome-copy > p { margin: 5px 0 6px; display: flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: 9px; }
 .welcome-copy > p i { width: 3px; height: 3px; border-radius: 50%; background: var(--orange); }
 .welcome-copy > span { color: var(--ink-soft); font-size: 9px; }
+.welcome-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .outline-button { white-space: nowrap; }
+
+.onboarding-empty-state { padding: 40px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.onboarding-empty-state .welcome-mark { margin-bottom: 14px; }
+.onboarding-empty-state h2 { margin: 0 0 8px; color: var(--ink); font: 700 17px var(--display); }
+.onboarding-empty-state p { max-width: 430px; margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.7; }
+.empty-state-actions { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+.panel-actions { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.landing-preview { margin-top: 14px; padding: 14px; display: grid; gap: 8px; border: 1px solid var(--line); background: var(--paper); }
+.landing-preview strong { color: var(--ink); font: 700 15px var(--display); }
+.landing-preview p { margin: 0; color: var(--ink-soft); font-size: 10px; line-height: 1.6; }
+.landing-preview small { color: #8793a0; font-size: 9px; line-height: 1.6; }
 .status-badge { width: max-content; max-width: 100%; padding: 5px 7px; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; background: #edf0f4; color: #5f6c7b; font: 8px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .status-badge i { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #8a96a4; }
 .status-verified, .status-active, .status-new, .status-information { background: #e9f5ec; color: #22743d; }

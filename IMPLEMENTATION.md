@@ -17,6 +17,7 @@ This document tracks the implementation of Phase 1 from the BHA Category Taxonom
 | `supabase/migrations/003_rls_fix_and_status_trigger.sql` | Fixes RLS policies with SECURITY DEFINER function (avoids JWT timing issues), adds server-side state machine enforcement trigger. |
 | `supabase/migrations/004_location_hierarchy.sql` | Creates the universal `locations` parent-child tree + `location_slug()` helper, indexes, RLS. Data is loaded by `supabase/migrations/locations/*.sql`. |
 | `supabase/migrations/005_country_locale_currency.sql` | Makes language and currency country-specific: adds `currency_code`, `currency_symbol`, `default_locale`, `dial_code`, `timezone` to `countries`; creates `country_languages`; adds `location_currency()`, `location_locale()`, `location_languages()`, `business_currency()`, `business_locale()` resolvers; backfills all 58 countries. |
+| `supabase/migrations/006_owner_workflow.sql` | Enables the real owner workflow: drops the legacy `industry_id`/`business_type_id` NOT NULL requirements, adds owner/admin write policies for businesses, profiles, services, socials, media, page versions, subscriptions, payments, enquiries and bookings, exposes profiles/published page versions publicly, and allows admin audit writes. **This migration must be applied or onboarding cannot write to Supabase.** |
 
 ### Admin UI Components
 
@@ -31,6 +32,19 @@ This document tracks the implementation of Phase 1 from the BHA Category Taxonom
 |------|--------|
 | `src/Dashboards.tsx` | Integrated TaxonomyManager into AdminDashboard as a new panel |
 | `src/dashboards.css` | Added 100+ lines of taxonomy manager + attribute manager styles (light/dark) |
+
+### Real-data owner workflow
+
+| File | Purpose |
+|------|---------|
+| `src/lib/pages.ts` | Shared page content types, slug/version helpers, draft builder, AI invocation, and the legal status-chain helper used by onboarding, dashboard, and editor. |
+| `src/pages/OnboardingPage.tsx` | Loads an existing owner business for editing, validates every step, writes the business + profile + categories + services + socials, creates a draft version, and invokes AI generation. |
+| `src/pages/LandingPageEditor.tsx` | Edits SEO, hero, about, services and key facts, saves DRAFT versions, submits for review, previews drafts, and regenerates with AI. |
+| `src/Dashboards.tsx` | Owner and admin dashboards now read live business, profile, page version, subscription, enquiry, booking, and review-queue data. |
+| `src/App.tsx` | Discovery reads live published businesses; `/business/:slug` renders the latest PUBLISHED page version (or an owner preview); `/dashboard/page` hosts the editor. |
+| `supabase/functions/generate-ai-page/index.ts` | Verifies the caller owns the business, handles both object/array relation shapes, never forces an invalid status transition, and keeps LIVE pages live while a new draft is prepared. |
+| `src/admin/QualityReviewPanel.tsx` | Publishes a selected page version, walks `QUALITY_REVIEW → APPROVED → LIVE`, marks approved businesses verified, and records review decisions in `audit_logs`. |
+| `src/Auth.tsx` | Signup with a session goes to `/onboarding`; login honours a safe `next` path and otherwise goes to `/dashboard`. |
 
 ---
 

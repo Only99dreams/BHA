@@ -16,15 +16,21 @@ export function getSupabaseClient() {
   return client
 }
 
+export function publicMediaUrl(pathOrUrl: string) {
+  if (!pathOrUrl) return ''
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl
+  if (!supabaseUrl) return ''
+  return `${supabaseUrl}/storage/v1/object/public/business-media/${encodeURI(pathOrUrl)}`
+}
+
 export type BusinessListing = {
   id: string
   slug: string
   business_name: string
   short_description: string
-  country: string | { name: string } | null
+  country_code: string | null
+  country: { name: string } | null
   city: string
-  industry: string | { name: string } | null
-  business_type: string | { name: string } | null
   cover_image_url: string | null
   is_verified: boolean
   is_booking_enabled: boolean
@@ -32,4 +38,9 @@ export type BusinessListing = {
   email?: string | null
   website?: string | null
   services?: { name: string; description: string }[]
+  business_categories?: {
+    is_primary: boolean
+    categories: { name: string; slug: string } | null
+  }[]
+  business_type?: { name: string } | null
 }

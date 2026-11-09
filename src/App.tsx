@@ -1,26 +1,18 @@
-import { useEffect, useState } from 'react'
-import { ArrowDownRight, ArrowLeft, ArrowRight, BadgeCheck, Building2, Check, ChevronDown, Compass, ExternalLink, Globe2, Mail, MapPin, Menu, Moon, Phone, Search, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
+import { useEffect, useState, type CSSProperties } from 'react'
+import { ArrowDownRight, ArrowLeft, ArrowRight, BadgeCheck, Building2, Check, ChevronDown, Compass, Globe2, MapPin, Menu, Moon, Search, Share2, ShieldCheck, Sparkles, Sun, X } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
-import { getSupabaseClient, hasSupabaseConfig, type BusinessListing } from './supabase'
+import { getSupabaseClient, hasSupabaseConfig, publicMediaUrl, type BusinessListing } from './supabase'
 import { Brand } from './Brand'
+import { BusinessWebsite } from './components/BusinessWebsite'
+import { normaliseHours, normaliseSocials } from './lib/website'
 import { AdminDashboard, BusinessDashboard } from './Dashboards'
 import { AuthScreen } from './Auth'
 import { CategoryPage } from './pages/CategoryPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { LandingPageEditor } from './pages/LandingPageEditor'
 import { generateBusinessStructuredData } from './lib/seo'
+import { type PageContent, type PageVersion } from './lib/pages'
 import './bha.css'
-
-const previewIndustries = ['Agriculture & Food', 'Business Services', 'Commerce & Retail', 'Construction', 'Creative & Media', 'Education', 'Green Economy', 'Health & Wellness', 'Hospitality & Tourism', 'Logistics', 'Manufacturing', 'Professional Services', 'Real Estate', 'Technology', 'Transportation']
-const previewCountries = ['All countries', 'Ghana', 'Kenya', 'Nigeria', 'Rwanda', 'South Africa', 'Uganda']
-
-const sampleBusinesses: BusinessListing[] = [
-  { id: 'sample-1', slug: 'the-terrace-accra', business_name: 'The Terrace Accra', short_description: 'A considered stay in the heart of Accra, with thoughtful rooms and a rooftop made for slow evenings.', country: 'Ghana', city: 'Accra', industry: 'Hospitality & Tourism', business_type: 'Boutique Hotel', cover_image_url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1000&q=85', is_verified: true, is_booking_enabled: true, email: 'hello@terrace-accra.example' },
-  { id: 'sample-2', slug: 'savanna-collective', business_name: 'Savanna Collective', short_description: 'Smallholder-grown, traceable shea and botanical ingredients from northern Ghana.', country: 'Ghana', city: 'Tamale', industry: 'Agriculture & Food', business_type: 'Agricultural Producer', cover_image_url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1000&q=85', is_verified: true, is_booking_enabled: false },
-  { id: 'sample-3', slug: 'moyo-studio', business_name: 'Moyo Studio', short_description: 'A Nairobi-based architecture practice shaping purposeful spaces for a changing city.', country: 'Kenya', city: 'Nairobi', industry: 'Construction', business_type: 'Architecture Studio', cover_image_url: 'https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=1000&q=85', is_verified: true, is_booking_enabled: false },
-  { id: 'sample-4', slug: 'northstar-health', business_name: 'Northstar Health', short_description: 'Accessible, people-first primary care connecting communities to better everyday health.', country: 'Nigeria', city: 'Lagos', industry: 'Health & Wellness', business_type: 'Health Clinic', cover_image_url: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1000&q=85', is_verified: true, is_booking_enabled: false },
-  { id: 'sample-5', slug: 'kivu-roasters', business_name: 'Kivu Roasters', short_description: 'Exceptional Rwandan coffee, sourced close to origin and roasted with care in Kigali.', country: 'Rwanda', city: 'Kigali', industry: 'Commerce & Retail', business_type: 'Coffee Roaster', cover_image_url: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&w=1000&q=85', is_verified: true, is_booking_enabled: false },
-  { id: 'sample-6', slug: 'studio-nala', business_name: 'Studio Nala', short_description: 'Independent design and digital storytelling for brands building what comes next.', country: 'South Africa', city: 'Cape Town', industry: 'Creative & Media', business_type: 'Design Studio', cover_image_url: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1000&q=85', is_verified: true, is_booking_enabled: false },
-]
 
 type SubscriptionPlan = {
   id: string
@@ -31,50 +23,103 @@ type SubscriptionPlan = {
   features: string[]
 }
 
-const previewPlans: SubscriptionPlan[] = [
-  { id: 'basic', name: 'Basic', standard_price: 45, currency: 'USD', booking_enabled: false, features: ['Professional business page', 'Verified business presence', 'Products, services & gallery', 'Search visibility'] },
-  { id: 'booking', name: 'Business Visibility + Booking', standard_price: 65, currency: 'USD', booking_enabled: true, features: ['Everything in Basic', 'Booking functionality'] },
-]
-
-function displayValue(value: BusinessListing['country'] | BusinessListing['industry'] | BusinessListing['business_type']) {
-  return typeof value === 'string' ? value : value?.name ?? ''
+function primaryCategory(business: BusinessListing) {
+  return business.business_categories?.find((item) => item.is_primary)?.categories || null
 }
 
-function BusinessPage({ business, isLoading }: { business?: BusinessListing; isLoading: boolean }) {
-  const [relatedCategories, setRelatedCategories] = useState<{ name: string; slug: string }[]>([])
+function countryName(business: BusinessListing) {
+  return business.country?.name || business.country_code || ''
+}
+
+function businessTypeName(business: BusinessListing) {
+  return business.business_type?.name || ''
+}
+
+function BusinessPage({ slug, session }: { slug: string; session: Session | null }) {
+  const [business, setBusiness] = useState<any>(null)
+  const [pageVersion, setPageVersion] = useState<PageVersion | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [media, setMedia] = useState<any[]>([])
+  const [copied, setCopied] = useState(false)
+  const previewVersion = new URLSearchParams(window.location.search).get('preview')
 
   useEffect(() => {
-    if (!business || !hasSupabaseConfig) return
-    // Fetch related categories (same industry, different businesses)
-    const client = getSupabaseClient()
-    client
-      .from('categories')
-      .select('name, slug')
-      .eq('is_active', true)
-      .neq('name', displayValue(business.industry))
-      .limit(4)
-      .then(({ data }) => {
-        if (data) setRelatedCategories(data as { name: string; slug: string }[])
-      })
-  }, [business])
+    if (!hasSupabaseConfig) {
+      setIsLoading(false)
+      setNotFound(true)
+      return
+    }
+    let isCurrent = true
+    const load = async () => {
+      setIsLoading(true)
+      const client = getSupabaseClient()
+      const { data, error } = await client
+        .from('businesses')
+        .select('*, business_profiles(*), business_services(name, description), business_socials(platform, url), business_categories(is_primary, categories(name), subcategories(name)), business_type_vocabulary(name)')
+        .eq('slug', slug)
+        .limit(1)
+        .maybeSingle()
+      if (!isCurrent) return
+      if (error || !data) {
+        setBusiness(null)
+        setNotFound(true)
+        setIsLoading(false)
+        return
+      }
+      setBusiness(data)
+
+      const { data: mediaData } = await client
+        .from('business_media')
+        .select('*')
+        .eq('business_id', data.id)
+        .order('created_at', { ascending: true })
+      if (isCurrent && mediaData) setMedia(mediaData)
+
+      let versionQuery = client.from('page_versions').select('*').eq('business_id', data.id)
+      if (previewVersion) versionQuery = versionQuery.eq('version', Number(previewVersion))
+      else versionQuery = versionQuery.eq('status', 'PUBLISHED')
+      const { data: version } = await versionQuery.order('version', { ascending: false }).limit(1).maybeSingle()
+      if (!isCurrent) return
+      setPageVersion((version || null) as PageVersion | null)
+      setIsLoading(false)
+    }
+    void load()
+    return () => { isCurrent = false }
+  }, [previewVersion, session?.user.id, slug])
+
+  useEffect(() => {
+    if (!business) return
+    const content: PageContent = pageVersion?.content || {}
+    document.title = content.seo_title || `${business.business_name} | Business Hub Africa`
+    const description = content.seo_description || business.short_description || ''
+    let meta = document.querySelector('meta[name="description"]')
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.setAttribute('name', 'description')
+      document.head.appendChild(meta)
+    }
+    meta.setAttribute('content', description)
+  }, [business, pageVersion])
 
   // Inject structured data
   useEffect(() => {
     if (!business) return
+    const content: PageContent = pageVersion?.content || {}
     const schema = generateBusinessStructuredData({
-      name: business.business_name,
-      description: business.short_description,
+      name: content.page_headline || business.business_name,
+      description: content.seo_description || business.short_description,
       url: `${window.location.origin}/business/${business.slug}`,
-      image: business.cover_image_url,
+      image: content.hero_image_url || business.cover_image_url,
       city: business.city,
-      country: displayValue(business.country),
+      country: business.country?.name || business.country_code || '',
       phone: business.phone ?? null,
       email: business.email ?? null,
       website: business.website ?? null,
-      category: displayValue(business.industry),
-      businessType: displayValue(business.business_type),
+      category: business.business_categories?.find((item: any) => item.is_primary)?.categories?.name || '',
+      businessType: business.business_type_vocabulary?.name || '',
       verified: business.is_verified,
-      services: business.services ?? [],
+      services: content.suggested_services || business.business_services || [],
       datePublished: null,
     })
     const script = document.createElement('script')
@@ -82,48 +127,133 @@ function BusinessPage({ business, isLoading }: { business?: BusinessListing; isL
     script.textContent = schema
     document.head.appendChild(script)
     return () => { document.head.removeChild(script) }
-  }, [business])
+  }, [business, pageVersion])
 
-  if (!business && isLoading) return <main className="profile-state" role="status">Loading business profile…</main>
-  if (!business) return <main className="profile-state"><h1>This business page isn't available.</h1><a href="/">Back to discovery <ArrowRight size={15} /></a></main>
+  if (isLoading) return <main className="profile-state" role="status">Loading business profile…</main>
+  if (!business || notFound) return <main className="profile-state"><h1>This business page isn't available.</h1><a href="/">Back to discovery <ArrowRight size={15} /></a></main>
 
-  const countryName = displayValue(business.country)
-  const industryName = displayValue(business.industry)
-  const typeName = displayValue(business.business_type)
-  const email = business.email
-  const phone = business.phone
-  const website = business.website
-  const services = business.services ?? []
+  const content: PageContent = pageVersion?.content || {}
+  const profile = Array.isArray(business.business_profiles) ? business.business_profiles[0] : business.business_profiles
+  const countryName = business.country?.name || business.country_code
+  const categoryName = business.business_categories?.find((item: any) => item.is_primary)?.categories?.name || ''
+  const subcategoryName = business.business_categories?.find((item: any) => item.is_primary)?.subcategories?.name || ''
+  const typeName = business.business_type_vocabulary?.name || ''
+  const headline = content.page_headline || business.business_name
+  const intro = content.page_intro || business.short_description
+  const about = content.about_section || profile?.description || business.short_description
+  const services = content.suggested_services?.length ? content.suggested_services : (business.business_services || [])
+  const facts = (content.key_facts || []).map((fact) => typeof fact === 'string' ? { label: 'Fact', value: fact } : fact).filter((fact) => fact.value)
+  const features = (content.features || []).filter((feature) => feature.title)
+  const processSteps = (content.process_steps || []).filter((step) => step.title)
+  const faq = (content.faq || []).filter((item) => item.question && item.answer)
+  const heroHighlights = (content.hero_highlights || []).filter((highlight): highlight is string => typeof highlight === 'string' && Boolean(highlight.trim()))
+  const isPreview = Boolean(previewVersion)
+  const brandColor = /^#[0-9a-f]{6}$/i.test(String(content.brand_color || ''))
+    ? String(content.brand_color)
+    : (profile?.brand_color || '#092d67')
+  const logoUrl = content.logo_url || business.logo_url || ''
+  const aboutImage = typeof content.about_image_url === 'string' ? content.about_image_url : ''
+  const contentGallery = Array.isArray(content.gallery_images)
+    ? content.gallery_images.filter((image) => Boolean(image?.url))
+    : []
+  const galleryImages = contentGallery.length > 0
+    ? contentGallery
+    : media.map((item: any) => ({
+        url: publicMediaUrl(item.url || item.storage_path || ''),
+        alt: item.alt_text || business.business_name,
+        caption: item.caption,
+      })).filter((image) => Boolean(image.url))
+  const pageUrl = typeof window !== 'undefined' ? `${window.location.origin}/business/${business.slug}` : `/business/${business.slug}`
+  const socials = business.business_socials?.length
+    ? normaliseSocials(business.business_socials)
+    : normaliseSocials(profile?.social_links)
+  const websiteBusiness = {
+    name: business.business_name,
+    headline,
+    tagline: content.hero_tagline || intro,
+    intro,
+    about,
+    aboutTitle: content.about_title || '',
+    logoUrl,
+    heroImage: content.hero_image_url || business.cover_image_url || '',
+    aboutImage,
+    gallery: galleryImages,
+    brandColor,
+    category: categoryName,
+    subcategory: subcategoryName,
+    businessType: typeName,
+    city: business.city,
+    country: countryName,
+    verified: Boolean(business.is_verified),
+    ctaText: content.cta_text || '',
+    heroEyebrow: content.hero_eyebrow || '',
+    heroHighlights,
+    facts,
+    services,
+    features,
+    processSteps,
+    faq,
+    customSections: Array.isArray(content.sections)
+      ? content.sections.filter((section) => !['about', 'services', 'cta'].includes(String(section?.id)))
+      : [],
+    contactHeading: content.contact_heading || '',
+    contactNote: content.contact_note || '',
+    footerNote: content.footer_note || '',
+  }
+  const websiteContact = {
+    email: business.email || '',
+    phone: business.phone || '',
+    whatsapp: profile?.whatsapp || '',
+    website: business.website || '',
+    address: profile?.address || '',
+    hours: normaliseHours(profile?.opening_hours),
+    socials,
+  }
 
-  return <div className="profile-shell">
-    <header className="profile-header"><Brand href="/" /><a className="profile-back" href="/"><ArrowLeft size={15} /> Back to discovery</a></header>
-    <main>
-      <div className="profile-cover"><img src={business.cover_image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1400&q=85'} alt={`${business.business_name} cover`} /><div className="profile-cover-overlay" /><div className="profile-cover-label"><span className="live-dot" /> A BUSINESS WORTH KNOWING</div></div>
-      <section className="profile-content">
-        <div className="profile-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> {industryName} <span className="meta-dot" /> {typeName}</div><h1>{business.business_name}</h1><p><MapPin size={15} /> {business.city}, {countryName}</p></div>{business.is_verified && <span className="profile-verified"><BadgeCheck size={16} /> BHA VERIFIED</span>}</div>
-        <div className="profile-columns"><div className="profile-main"><section className="profile-section"><div className="eyebrow"><span className="eyebrow-line" /> ABOUT THE BUSINESS</div><h2>Built with purpose.<br /><em>Ready to be found.</em></h2><p>{business.short_description}</p></section>{services.length > 0 && <section className="profile-section"><div className="eyebrow"><span className="eyebrow-line" /> WHAT THEY DO</div><h2>Products & services</h2><div className="profile-services">{services.map((service) => <article key={service.name}><h3>{service.name}</h3><p>{service.description}</p></article>)}</div></section>}</div>
-          <aside className="profile-contact"><span className="eyebrow"><span className="eyebrow-line" /> START A CONVERSATION</span><h2>Good things<br />start with hello.</h2>{email && <a href={`mailto:${email}`}><Mail size={16} /> Email the business <ArrowRight size={15} /></a>}{phone && <a href={`tel:${phone}`}><Phone size={16} /> Call the business <ArrowRight size={15} /></a>}{website && <a href={website} target="_blank" rel="noreferrer"><ExternalLink size={16} /> Visit their website <ArrowRight size={15} /></a>}{business.is_booking_enabled && <button type="button" disabled>Booking enquiries coming soon</button>}<p>Business identity verified by Business Hub Africa.</p></aside>
-        </div>
-      </section>
-    </main>
-    {relatedCategories.length > 0 && <section className="related-categories"><div className="eyebrow"><span className="eyebrow-line" /> EXPLORE MORE</div><h2>Discover other businesses</h2><div className="related-grid">{relatedCategories.map((cat) => <a key={cat.slug} href={`/category/${cat.slug}`} className="related-card"><Building2 size={16} /><span>{cat.name}</span><ArrowRight size={14} /></a>)}</div></section>}
-    <footer className="site-footer"><Brand className="footer-wordmark" href="/" /><span className="footer-tagline">CREDIBILITY THAT CROSSES BORDERS.</span><span className="footer-copy">© 2026 BUSINESS HUB AFRICA</span></footer>
+  const sharePage = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: headline, text: intro || business.short_description || '', url: pageUrl })
+        return
+      }
+    } catch {
+      // fall through to copy
+    }
+    try {
+      await navigator.clipboard.writeText(pageUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // ignore
+    }
+  }
+
+  return <div className="biz-public" style={{ '--brand-color': brandColor } as CSSProperties}>
+    <header className="biz-public-bar">
+      <Brand href="/" />
+      <div className="biz-public-bar-actions">
+        <span className="biz-public-bar-context">{categoryName || 'Business'} · Business Hub Africa</span>
+        <button type="button" className="share-button" onClick={() => void sharePage()}>{copied ? <><Check size={15} /> Copied link</> : <><Share2 size={15} /> Share page</>}</button>
+        <a className="profile-back" href="/"><ArrowLeft size={15} /> Back to discovery</a>
+      </div>
+    </header>
+    {isPreview && <div className="preview-banner"><Sparkles size={15} /> Previewing version {pageVersion?.version ?? 'draft'} · {String(business.status || '').replaceAll('_', ' ')} <a href="/dashboard/page">Back to editor <ArrowRight size={13} /></a></div>}
+    <BusinessWebsite business={websiteBusiness} contact={websiteContact} idPrefix={`business-${business.slug}`} />
   </div>
 }
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('bha-theme') === 'dark' ? 'dark' : 'light')
-  const [businesses, setBusinesses] = useState<BusinessListing[]>(hasSupabaseConfig ? [] : sampleBusinesses)
+  const [businesses, setBusinesses] = useState<BusinessListing[]>([])
   const [query, setQuery] = useState('')
   const [country, setCountry] = useState('All countries')
   const [industry, setIndustry] = useState('')
   const [businessType, setBusinessType] = useState('')
   const [types, setTypes] = useState<string[]>([])
-  const [industryOptions, setIndustryOptions] = useState(previewIndustries)
-  const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([])
-  const [countryOptions, setCountryOptions] = useState(previewCountries)
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(hasSupabaseConfig ? [] : previewPlans)
-  const [promotionPercent, setPromotionPercent] = useState(hasSupabaseConfig ? 0 : 80)
+  const [industryOptions, setIndustryOptions] = useState<string[]>([])
+  const [countryOptions, setCountryOptions] = useState<string[]>(['All countries'])
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [promotionPercent, setPromotionPercent] = useState(0)
   const [isLoading, setIsLoading] = useState(hasSupabaseConfig)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
@@ -189,7 +319,6 @@ function App() {
       if (countryResult.data?.length) setCountryOptions(['All countries', ...countryResult.data.map((item) => item.name)])
       if (categoryResult.data?.length) {
         setIndustryOptions(categoryResult.data.map((item) => item.name))
-        setCategories(categoryResult.data)
       }
     }
     void loadTaxonomy()
@@ -233,49 +362,56 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!hasSupabaseConfig) return
+    if (!hasSupabaseConfig) {
+      setIsLoading(false)
+      return
+    }
     let isCurrent = true
     const loadBusinesses = async () => {
-      let request = getSupabaseClient().from('businesses').select('id, slug, business_name, short_description, country:countries(name), city, industry:industries(name), business_type:business_types(name), cover_image_url, is_verified, is_booking_enabled, phone, email, website, services:business_services(name, description)').eq('status', 'LIVE').eq('is_published', true).order('published_at', { ascending: false })
-      if (country !== 'All countries') request = request.eq('country.name', country)
-      if (industry) request = request.eq('industry.name', industry)
-      if (businessType) request = request.eq('business_type.name', businessType)
-      if (query.trim()) request = request.ilike('search_text', `%${query.trim()}%`)
-      const { data, error } = await request
+      setIsLoading(true)
+      const { data, error } = await getSupabaseClient()
+        .from('businesses')
+        .select('id, slug, business_name, short_description, country_code, country:countries(name), city, cover_image_url, is_verified, is_booking_enabled, phone, email, website, services:business_services(name, description), business_categories(is_primary, categories(name, slug)), business_type:business_type_vocabulary(name)')
+        .eq('status', 'LIVE')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+        .limit(200)
       if (!isCurrent) return
-      if (!error && data) setBusinesses(data as unknown as BusinessListing[])
-      if (error) setBusinesses([])
+      setBusinesses(error ? [] : (data as unknown as BusinessListing[]))
       setIsLoading(false)
     }
     void loadBusinesses()
     return () => { isCurrent = false }
-  }, [country, industry, businessType, query])
+  }, [])
 
   useEffect(() => {
-    if (!hasSupabaseConfig || !industry) return
-    let isCurrent = true
-    const loadTypes = async () => {
-      const { data } = await getSupabaseClient().from('business_types').select('name, industry:industries!inner(name)').eq('is_active', true).eq('industry.name', industry).order('name')
-      if (isCurrent) setTypes((data ?? []).map((item) => item.name))
-    }
-    void loadTypes()
-    return () => { isCurrent = false }
-  }, [industry])
+    const names = industry
+      ? businesses
+          .filter((business) => primaryCategory(business)?.name === industry)
+          .map((business) => businessTypeName(business))
+          .filter(Boolean)
+      : []
+    setTypes(Array.from(new Set(names)).sort())
+  }, [businesses, industry])
 
-  const visibleBusinesses = hasSupabaseConfig ? businesses : sampleBusinesses.filter((business) => {
+  const visibleBusinesses = businesses.filter((business) => {
     const normalizedQuery = query.trim().toLowerCase()
-    const matchesQuery = !normalizedQuery || `${business.business_name} ${business.short_description} ${business.city} ${business.country} ${business.industry} ${business.business_type}`.toLowerCase().includes(normalizedQuery)
-    return matchesQuery && (country === 'All countries' || business.country === country) && (!industry || business.industry === industry) && (!businessType || business.business_type === businessType)
+    const category = primaryCategory(business)?.name || ''
+    const type = businessTypeName(business)
+    const place = countryName(business)
+    const matchesQuery = !normalizedQuery || `${business.business_name} ${business.short_description} ${business.city} ${place} ${category} ${type}`.toLowerCase().includes(normalizedQuery)
+    return matchesQuery
+      && (country === 'All countries' || place === country)
+      && (!industry || category === industry)
+      && (!businessType || type === businessType)
   })
 
   const changeIndustry = (value: string) => {
     setIndustry(value)
     setBusinessType('')
-    if (hasSupabaseConfig) setTypes([])
-    else setTypes(value ? [...new Set(sampleBusinesses.filter((business) => displayValue(business.industry) === value).map((business) => displayValue(business.business_type)).filter(Boolean))] : [])
   }
   const clearFilters = () => { setQuery(''); setCountry('All countries'); changeIndustry('') }
-  const startApplication = () => window.location.assign('/signup')
+  const startApplication = () => window.location.assign(session ? '/dashboard' : '/signup')
   const signOut = async () => {
     if (hasSupabaseConfig) await getSupabaseClient().auth.signOut()
     window.location.assign('/')
@@ -287,11 +423,16 @@ function App() {
   }
   const categorySlug = window.location.pathname.startsWith('/category/') ? decodeURIComponent(window.location.pathname.slice('/category/'.length)) : ''
   if (categorySlug) return <CategoryPage categorySlug={categorySlug} />
-  if (routeSlug) return <BusinessPage business={businesses.find((business) => business.slug === routeSlug)} isLoading={isLoading} />
+  if (routeSlug) return <BusinessPage slug={routeSlug} session={session} />
+  if (window.location.pathname === '/dashboard/page') {
+    if (isAuthLoading) return <main className="profile-state" role="status">Checking your account…</main>
+    if (!session) return <AuthScreen mode="login" />
+    return <LandingPageEditor session={session} />
+  }
   if (window.location.pathname === '/dashboard') {
     if (isAuthLoading) return <main className="profile-state" role="status">Checking your account…</main>
     if (!session) return <AuthScreen mode="login" />
-    return <BusinessDashboard theme={theme} onToggleTheme={toggleTheme} onSignOut={signOut} />
+    return <BusinessDashboard theme={theme} onToggleTheme={toggleTheme} onSignOut={signOut} session={session} />
   }
   if (window.location.pathname === '/onboarding') {
     if (isAuthLoading) return <main className="profile-state" role="status">Checking your account…</main>
@@ -302,7 +443,8 @@ function App() {
     if (hasSupabaseConfig && (isAuthLoading || isAdminRoleLoading)) return <main className="profile-state" role="status">Checking admin access…</main>
     if (hasSupabaseConfig && !session) return <AuthScreen mode="login" />
     if (hasSupabaseConfig && !canReviewAdmin) return <main className="profile-state"><h1>Admin access required.</h1><a href="/">Back to discovery <ArrowRight size={15} /></a></main>
-    return <AdminDashboard theme={theme} onToggleTheme={toggleTheme} onSignOut={signOut} />
+    if (!session) return <AuthScreen mode="login" />
+    return <AdminDashboard theme={theme} onToggleTheme={toggleTheme} onSignOut={signOut} session={session} />
   }
 
   return <div className="site-shell">
@@ -315,10 +457,10 @@ function App() {
       <section className="proof-strip" aria-label="Business Hub Africa benefits"><div className="proof-item"><span className="proof-icon"><ShieldCheck size={18} /></span><div><b>Identity, verified</b><span>Trust starts with knowing</span></div></div><span className="proof-separator" /><div className="proof-item"><span className="proof-icon"><Building2 size={18} /></span><div><b>A page of your own</b><span>Your business, presented well</span></div></div><span className="proof-separator" /><div className="proof-item"><span className="proof-icon"><Compass size={18} /></span><div><b>Found beyond borders</b><span>Visibility that travels</span></div></div><span className="proof-note">GET VERIFIED. GET ONLINE. GET DISCOVERED.</span></section>
 
       <section className="discovery-section" id="discover" aria-labelledby="discover-title"><div className="section-heading-row"><div><div className="eyebrow"><span className="eyebrow-line" /> THE BHA BUSINESS NETWORK</div><h2 id="discover-title">Find your next <em>good business.</em></h2></div><p>Explore credible businesses building across the continent. Start with a place, an industry, or a name.</p></div>
-        {!hasSupabaseConfig && <div className="preview-notice"><Sparkles size={15} /><span>Preview mode</span><span>Showing sample businesses. Connect Supabase to publish live profiles.</span><a href="#connect">Setup details <ArrowRight size={13} /></a></div>}
+        {!hasSupabaseConfig && <div className="preview-notice"><Sparkles size={15} /><span>Not connected</span><span>Add your Supabase project credentials to display live businesses.</span><a href="#connect">Setup details <ArrowRight size={13} /></a></div>}
         <div className="search-panel" role="search"><label className="keyword-field"><Search size={19} /><span className="sr-only">Search businesses</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Business, service, or keyword" /></label><label className="select-field"><MapPin size={17} /><span className="sr-only">Country</span><select value={country} onChange={(event) => setCountry(event.target.value)}>{countryOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown className="select-chevron" size={14} /></label><label className="select-field"><Building2 size={17} /><span className="sr-only">Industry</span><select value={industry} onChange={(event) => changeIndustry(event.target.value)}><option value="">All industries</option>{industryOptions.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown className="select-chevron" size={14} /></label><label className="select-field type-select"><span className="sr-only">Business type</span><select value={businessType} disabled={!industry || types.length === 0} onChange={(event) => setBusinessType(event.target.value)}><option value="">{industry ? 'All business types' : 'Choose industry first'}</option>{types.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown className="select-chevron" size={14} /></label><button className="search-button" type="button" onClick={() => document.getElementById('business-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Explore <ArrowRight size={16} /></button></div>
-        <div className="results-toolbar"><div className="results-count"><span className="results-count-number">{hasSupabaseConfig ? (isLoading ? '—' : visibleBusinesses.length) : visibleBusinesses.length.toString().padStart(2, '0')}</span><span>BUSINESSES<br />TO GET TO KNOW</span></div><div className="results-controls"><span className="results-location"><MapPin size={14} /> {country === 'All countries' ? 'Across Africa' : country}</span><span className="sort-divider" /><button className="sort-button" type="button" onClick={clearFilters}>Clear filters <X size={14} /></button></div></div>
-        {visibleBusinesses.length > 0 ? <div className="business-grid" id="business-grid">{visibleBusinesses.map((business, index) => { const catSlug = categories.find((c) => c.name === displayValue(business.industry))?.slug; return <article className="business-card" key={business.id} style={{ animationDelay: `${index * 70}ms` }}><a className="business-image-link" href={`/business/${business.slug}`} aria-label={`View ${business.business_name}`}><img className="business-image" src={business.cover_image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1000&q=85'} alt={`${business.business_name} business profile`} loading="lazy" />{business.is_verified && <span className="verified-pill"><BadgeCheck size={13} /> BHA VERIFIED</span>}{business.is_booking_enabled && <span className="booking-pill">BOOKABLE</span>}</a><div className="business-card-body"><div className="business-card-meta">{catSlug && <a href={`/category/${catSlug}`} className="card-category-link">{displayValue(business.industry)}</a>}<span className="meta-dot" /><span>{displayValue(business.business_type)}</span></div><h3><a href={`/business/${business.slug}`}>{business.business_name}</a></h3><p>{business.short_description}</p><div className="business-card-footer"><span><MapPin size={13} /> {business.city}, {displayValue(business.country)}</span><a href={`/business/${business.slug}`} aria-label={`View ${business.business_name}`}><ArrowRight size={17} /></a></div></div></article>})}</div> : isLoading ? <div className="empty-state" role="status">Loading the business network…</div> : <div className="empty-state"><Search size={24} /><h3>No businesses found just yet</h3><p>Try a different keyword or clear a filter to explore more of the network.</p><button type="button" onClick={clearFilters}>Clear all filters <ArrowRight size={14} /></button></div>}
+        <div className="results-toolbar"><div className="results-count"><span className="results-count-number">{isLoading ? '—' : visibleBusinesses.length}</span><span>BUSINESSES<br />TO GET TO KNOW</span></div><div className="results-controls"><span className="results-location"><MapPin size={14} /> {country === 'All countries' ? 'Across Africa' : country}</span><span className="sort-divider" /><button className="sort-button" type="button" onClick={clearFilters}>Clear filters <X size={14} /></button></div></div>
+        {visibleBusinesses.length > 0 ? <div className="business-grid" id="business-grid">{visibleBusinesses.map((business, index) => { const category = primaryCategory(business); const type = businessTypeName(business); return <article className="business-card" key={business.id} style={{ animationDelay: `${index * 70}ms` }}><a className="business-image-link" href={`/business/${business.slug}`} aria-label={`View ${business.business_name}`}><img className="business-image" src={business.cover_image_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1000&q=85'} alt={`${business.business_name} business profile`} loading="lazy" />{business.is_verified && <span className="verified-pill"><BadgeCheck size={13} /> BHA VERIFIED</span>}{business.is_booking_enabled && <span className="booking-pill">BOOKABLE</span>}</a><div className="business-card-body"><div className="business-card-meta">{category && <a href={`/category/${category.slug}`} className="card-category-link">{category.name}</a>}{type && <><span className="meta-dot" /><span>{type}</span></>}</div><h3><a href={`/business/${business.slug}`}>{business.business_name}</a></h3><p>{business.short_description}</p><div className="business-card-footer"><span><MapPin size={13} /> {business.city}, {countryName(business)}</span><a href={`/business/${business.slug}`} aria-label={`View ${business.business_name}`}><ArrowRight size={17} /></a></div></div></article>})}</div> : isLoading ? <div className="empty-state" role="status">Loading the business network…</div> : <div className="empty-state"><Search size={24} /><h3>No businesses found just yet</h3><p>Try a different keyword or clear a filter to explore more of the network.</p><button type="button" onClick={clearFilters}>Clear all filters <ArrowRight size={14} /></button></div>}
         <div className="directory-bottom"><span>GOOD BUSINESS KNOWS NO BORDERS.</span><a href="#discover">Explore the network <ArrowRight size={15} /></a></div>
       </section>
 
